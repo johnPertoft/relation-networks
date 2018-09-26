@@ -64,6 +64,8 @@ DIRECTIONS = [
     "bottom"
 ]
 
+COUNT_DIM = len(COLORS)  # Count answers are in [1, ..., n_colors].
+
 
 class Object:
     def __init__(self, color: str, shape: str, position: Tuple[int, int]):
@@ -75,7 +77,7 @@ class Object:
 class Answer:
     """Represents a possible answer for the questions in this Sort-of-CLEVR implementation."""
 
-    dim = len(COLORS) + len(SHAPES) + len(DIRECTIONS) + 1
+    dim = len(COLORS) + len(SHAPES) + len(DIRECTIONS) + COUNT_DIM
 
     def __init__(self,
                  color: Optional[str]=None,
@@ -96,8 +98,9 @@ class Answer:
             return self._shape
         elif self._direction is not None:
             return self._direction
-        else:
+        elif self._count is not None:
             return f"{self._count}"
+        assert False, "Empty answer."
 
     def encode(self):
         color_answer = np.zeros((len(COLORS),))
@@ -112,9 +115,9 @@ class Answer:
         if self._direction is not None:
             directions_answer[DIRECTIONS.index(self._direction)] = 1
 
-        count_answer = np.zeros((1,))
+        count_answer = np.zeros((COUNT_DIM,))
         if self._count is not None:
-            count_answer[0] = self._count
+            count_answer[self._count - 1] = 1
 
         return np.hstack((color_answer, shape_answer, directions_answer, count_answer))
 
@@ -123,7 +126,7 @@ class Answer:
         color_dim_start = 0
         shape_dim_start = len(COLORS)
         direction_dim_start = shape_dim_start + len(SHAPES)
-        count_dim = direction_dim_start + len(DIRECTIONS)
+        count_dim_start = direction_dim_start + len(DIRECTIONS)
 
         color_answer = answer[color_dim_start:shape_dim_start]
         color_idx = np.where(color_answer == 1)[0]
@@ -135,12 +138,17 @@ class Answer:
         if shape_idx.size > 0:
             return cls(shape=SHAPES[shape_idx[0]])
 
-        direction_answer = answer[direction_dim_start:count_dim]
+        direction_answer = answer[direction_dim_start:count_dim_start]
         direction_idx = np.where(direction_answer == 1)[0]
         if direction_idx.size > 0:
             return cls(direction=DIRECTIONS[direction_idx[0]])
 
-        return cls(count=answer[count_dim])
+        count_answer = answer[count_dim_start:]
+        count_idx = np.where(count_answer == 1)[0]
+        if count_idx.size > 0:
+            return cls(count=count_idx + 1)
+
+        assert False, "Empty answer."
 
 
 class Question:
@@ -151,7 +159,7 @@ class Question:
         self._relational = relational
         self._answer_fn = answer_fn
 
-    def question(self, color: str) -> str:
+    def text(self, color: str) -> str:
         return self._question_fmt.format(color=color)
 
     @property
@@ -243,9 +251,22 @@ class Questions:
         return np.hstack((question_type, question_subtype, question_color))
 
     @staticmethod
-    def decode(question: np.ndarray) -> Question:
-        # TODO: needed for use when reading just encoded questions.
-        pass
+    def decode(question: np.ndarray) -> Tuple[Question, str]:
+        question_type_start = 0
+        question_subtype_start = question_type_start + 2
+        question_color_start = question_subtype_start + Questions.n_questions
+
+        question_type_part = question[question_type_start:question_subtype_start]
+        question_type_idx = np.where(question_type_part == 1)[0][0]
+
+        question_subtype_part = question[question_subtype_start:question_color_start]
+        question_subtype_idx = np.where(question_subtype_part == 1)[0][0]
+
+        question_color_part = question[question_color_start:]
+        question_color_idx = np.where(question_color_part == 1)[0][0]
+
+        question_type = Questions.relational_questions if question_type_idx == 0 else Questions.non_relational_questions
+        return question_type[question_subtype_idx], COLORS[question_color_idx]
 
     @staticmethod
     def generate(objects: List[Object]) -> Iterator[Tuple[str, str, np.ndarray, np.ndarray]]:
@@ -257,7 +278,7 @@ class Questions:
                 q = questions[question_idx]
                 a = q.answer(objects, color)
 
-                q_str = q.question(color)
+                q_str = q.text(color)
                 a_str = str(a)
 
                 q_enc = Questions.encode(q.relational, question_idx, COLORS.index(color))

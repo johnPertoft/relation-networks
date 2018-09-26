@@ -7,7 +7,7 @@ sort_of_clevr = generator()
 
 
 while True:
-    img, question, answer, q_enc, a_enc = next(sort_of_clevr)
+    img, q_enc, a_enc, question, answer = next(sort_of_clevr)
 
     # TODO: Fix weird behaviour when exiting.
 
