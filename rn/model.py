@@ -72,15 +72,42 @@ def model_fn(features, labels, mode, params, config):
         question),
         axis=2)
     combined_relations = tf.reduce_sum(relation(relation_input), axis=1)
-    # TODO: Make sure this is computed correctly across batches etc.
+
+    # TODO: Test that the object pairing part works as expected.
 
     logits = answer(combined_relations)
-    print(logits)
-    exit()
 
+    predictions = None
+    if mode in (tf.estimator.ModeKeys.PREDICT, tf.estimator.ModeKeys.EVAL):
+        probabilities = tf.nn.softmax(logits)
+        predictions = tf.one_hot(tf.argmax(probabilities, axis=1), depth=probabilities.shape[1])
 
+    loss = None
+    if mode in (tf.estimator.ModeKeys.TRAIN, tf.estimator.ModeKeys.EVAL):
+        tf.losses.add_loss(tf.losses.softmax_cross_entropy(labels, logits))
+        loss = tf.losses.get_total_loss()
 
-    # TODO: Update count answer to be a one hot as well? In sort of clevr dataset that is.
-        # Easier to just place one softmax over all answer logits.
-    # TODO: Summaries with question and with actual and predicted answer.
-    # TODO: remember update_ops for bn etc.
+    eval_metric_ops = None
+    evaluation_hooks = None
+    if mode == tf.estimator.ModeKeys.EVAL:
+        eval_metric_ops = {
+            "accuracy": tf.metrics.accuracy(labels=labels, predictions=predictions)
+        }
+
+    train_op = None
+    training_hooks = None
+    if mode == tf.estimator.ModeKeys.TRAIN:
+        global_step = tf.train.get_or_create_global_step()
+        with tf.control_dependencies(tf.get_collection(tf.GraphKeys.UPDATE_OPS)):
+            train_op = tf.train.AdamOptimizer(learning_rate=2.5e-4).minimize(loss, global_step=global_step)
+        # TODO: Add summaries to train hooks?
+            # Include text summaries with question paired with actual and predicted answer.
+
+    return tf.estimator.EstimatorSpec(
+        mode=mode,
+        predictions=predictions,
+        loss=loss,
+        train_op=train_op,
+        training_hooks=training_hooks,
+        eval_metric_ops=eval_metric_ops,
+        evaluation_hooks=evaluation_hooks)
