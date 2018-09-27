@@ -8,6 +8,7 @@ from typing import Optional
 from typing import Tuple
 
 import numpy as np
+import tensorflow as tf
 from PIL import Image
 from PIL import ImageDraw
 
@@ -269,10 +270,10 @@ class Questions:
         return question_type[question_subtype_idx], COLORS[question_color_idx]
 
     @staticmethod
-    def generate(objects: List[Object]) -> Iterator[Tuple[str, str, np.ndarray, np.ndarray]]:
+    def generate(objects: List[Object], rand: random.Random) -> Iterator[Tuple[str, str, np.ndarray, np.ndarray]]:
         def sample_questions(questions, n) -> Iterator[Tuple[str, str, np.ndarray, np.ndarray]]:
             possible_questions = list(itertools.product(range(Questions.n_questions), COLORS))
-            random.shuffle(possible_questions)
+            rand.shuffle(possible_questions)
 
             for question_idx, color in possible_questions[:n]:
                 q = questions[question_idx]
@@ -303,33 +304,52 @@ def create_image(objects: List[Object]) -> np.ndarray:
     return np.array(img)
 
 
-def random_objects() -> List[Object]:
+def random_objects(rand: random.Random) -> List[Object]:
     def random_pos():
         margin = OBJECT_SIZE // 2
         lower, upper = margin, IMG_SIZE - margin
-        return random.randint(lower, upper), random.randint(lower, upper)
+        return rand.randint(lower, upper), rand.randint(lower, upper)
+
+    def random_shape():
+        return rand.choice(SHAPES)
 
     # TODO: Make sure objects don't overlap too much.
     # TODO: Potentially make which objects are closest/furthest more visually distinguishable.
 
-    objects = [Object(color, random.choice(SHAPES), random_pos()) for color in COLORS]
+    objects = [Object(color, random_shape(), random_pos()) for color in COLORS]
 
     return objects
 
 
-def generator(include_human_readable=True) -> Iterator[Tuple[np.ndarray, str, str, np.ndarray, np.ndarray]]:
+def generator(include_human_readable=True, seed: int=0) -> Iterator[Tuple[np.ndarray, str, str, np.ndarray, np.ndarray]]:
     """Generator for Sort-of-CLEVR data points."""
 
+    rand = random.Random(seed)
+
     while True:
-        objects = random_objects()
+        objects = random_objects(rand)
         img = create_image(objects)
-        for question, answer, question_enc, answer_enc in Questions.generate(objects):
+        for question, answer, question_enc, answer_enc in Questions.generate(objects, rand):
             if include_human_readable:
                 yield img, question_enc, answer_enc, question, answer
             else:
                 yield img, question_enc, answer_enc
 
 
-def tfrecords(directory: Path) -> None:
-    # TODO: Only store the encoded questions and answers.
-    pass
+def tf_dataset(batch_size: int, seed: int=0) -> tf.data.Dataset:
+    ds = tf.data.Dataset.from_generator(
+        lambda: generator(False, seed),
+        output_types=(
+            tf.uint8,
+            tf.float32,
+            tf.float32),
+        output_shapes=(
+            tf.TensorShape([IMG_SIZE, IMG_SIZE, 3]),
+            tf.TensorShape([Questions.dim]),
+            tf.TensorShape([Answer.dim])))
+
+    ds = ds.shuffle(1024)
+    ds = ds.batch(batch_size)
+    ds = ds.map(lambda img, q, a: ({"img": tf.cast(img, tf.float32) / 255.0, "question": q}, a))
+
+    return ds
