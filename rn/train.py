@@ -6,8 +6,12 @@ from rn.data import sort_of_clevr
 from rn.model import model_fn
 
 
+tf.logging.set_verbosity(tf.logging.INFO)
+
+
 argparser = argparse.ArgumentParser()
-argparser.add_argument("--model-dir")
+argparser.add_argument("--model-dir", type=str, help="Model directory for training and evaluation output.")
+argparser.add_argument("--batch-size", type=int, default=64, help="Batch size.")
 args = argparser.parse_args()
 
 hparams = {}
@@ -17,34 +21,15 @@ estimator = tf.estimator.Estimator(
     model_dir=args.model_dir,
     params=hparams)
 
-
-ds = tf.data.Dataset.from_generator(
-    lambda: sort_of_clevr.generator(False),
-    output_types=(tf.uint8, tf.float32, tf.float32),
-    output_shapes=(tf.TensorShape([sort_of_clevr.IMG_SIZE, sort_of_clevr.IMG_SIZE, 3]),
-                   tf.TensorShape([sort_of_clevr.Questions.dim]),
-                   tf.TensorShape([sort_of_clevr.Answer.dim])))
-ds = ds.shuffle(1024)
-ds = ds.batch(32)
-
-
-def input_fn():
-    img, q, a = ds.make_one_shot_iterator().get_next()
-    return {"img": tf.cast(img, tf.float32) / 255.0, "question": q}, a
-
-
-train_spec = tf.estimator.TrainSpec(
-    input_fn=input_fn,
-    hooks=None,
-    max_steps=None
-)
-
-eval_spec = tf.estimator.EvalSpec(
-    input_fn=input_fn)  # TODO: Temp input fn.
-
 tf.estimator.train_and_evaluate(
     estimator=estimator,
-    train_spec=train_spec,
-    eval_spec=eval_spec)
+    train_spec=tf.estimator.TrainSpec(
+        input_fn=lambda: sort_of_clevr.tf_dataset(args.batch_size, seed=0),
+        hooks=None,
+        max_steps=300000),
+    eval_spec=tf.estimator.EvalSpec(
+        input_fn=lambda: sort_of_clevr.tf_dataset(args.batch_size, seed=1)))
 
-# TODO: Final test set evaluation.
+# TODO: Pick best checkpoint.
+estimator.evaluate(
+    input_fn=lambda: sort_of_clevr.tf_dataset(args.batch_size, seed=2))
