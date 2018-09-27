@@ -2,6 +2,8 @@ import functools
 
 import tensorflow as tf
 
+from rn.data import sort_of_clevr
+
 
 def cnn_model_fn(x, is_training):
     conv = functools.partial(tf.layers.conv2d, padding="same")
@@ -47,7 +49,7 @@ def model_fn(features, labels, mode, params, config):
 
     cnn = tf.make_template("cnn", cnn_model_fn, is_training=is_training)
     relation = tf.make_template("relation", relation_model_fn, is_training=is_training)
-    answer = tf.make_template("answer", answer_model_fn, answer_dim=labels.shape[1], is_training=is_training)
+    answer = tf.make_template("answer", answer_model_fn, answer_dim=sort_of_clevr.Answer.dim, is_training=is_training)
 
     # The "objects" are the spatial coordinates of the cnn output.
     objects = cnn(features["img"])
@@ -90,6 +92,7 @@ def model_fn(features, labels, mode, params, config):
     eval_metric_ops = None
     evaluation_hooks = None
     if mode == tf.estimator.ModeKeys.EVAL:
+        # TODO: Add metrics for different question types.
         eval_metric_ops = {
             "accuracy": tf.metrics.accuracy(labels=labels, predictions=predictions)
         }
