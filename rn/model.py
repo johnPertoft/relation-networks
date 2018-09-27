@@ -75,8 +75,6 @@ def model_fn(features, labels, mode, params, config):
         axis=2)
     combined_relations = tf.reduce_sum(relation(relation_input), axis=1)
 
-    # TODO: Test that the object pairing part works as expected.
-
     logits = answer(combined_relations)
 
     predictions = None
