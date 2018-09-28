@@ -90,7 +90,7 @@ def model_fn(features, labels, mode, params, config):
     eval_metric_ops = None
     evaluation_hooks = None
     if mode == tf.estimator.ModeKeys.EVAL:
-        # TODO: Add metrics for different question types.
+        # TODO: Add metrics for different question (sub-)types.
         eval_metric_ops = {
             "accuracy": tf.metrics.accuracy(labels=labels, predictions=predictions)
         }

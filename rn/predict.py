@@ -44,4 +44,3 @@ for img, question, actual_answer, predicted_answer in zip(imgs, questions, answe
     plt.imshow(img)
     plt.draw()
     plt.waitforbuttonpress(0)
-
