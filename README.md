@@ -11,7 +11,19 @@ natural language but still retaining the need for relational reasoning.
 $ python -m rn.data.sort_of_clevr.inspect
 ```
 
-TODO: Show example image and question/answer.
+![soft-of-clevr-sample](pics/sort-of-clevr-sample.png)
+
+## Training
+```bash
+$ python -m rn.train
+```
 
 ## Results
-TODO
+```bash
+$ python -m rn.predict --checkpoint path/to/checkpoint
+```
+
+![sort-of-clevr-prediction-sample](pics/sort-of-clevr-prediction-sample.png)
+
+TODO: Show fail cases.
+TODO: Show loss curves.
