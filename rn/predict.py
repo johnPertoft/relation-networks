@@ -25,7 +25,7 @@ estimator = tf.estimator.Estimator(model_fn=model_fn)
 
 
 dataset_sample = itertools.islice(sort_of_clevr.generator(seed=99), args.n_samples)
-imgs, q_encs, a_encs, questions, answers = [list(t) for t in zip(*dataset_sample)]
+imgs, q_encs, _, questions, answers = [list(t) for t in zip(*dataset_sample)]
 input_fn = tf.estimator.inputs.numpy_input_fn({
     "img": np.stack(imgs).astype(np.float32) / 255.0,
     "question": np.stack(q_encs).astype(np.float32)},
