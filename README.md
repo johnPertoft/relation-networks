@@ -20,10 +20,9 @@ $ python -m rn.train
 
 ## Results
 ```bash
-$ python -m rn.predict --checkpoint path/to/checkpoint
+$ python -m rn.predict --checkpoint path/to/checkpoint [--only-misclassifications] [--seed xxx]
 ```
 
 ![sort-of-clevr-prediction-sample](pics/sort-of-clevr-prediction-sample.png)
 
-TODO: Show fail cases.
-TODO: Show loss curves.
+TODO: Show accuracy and loss curves.

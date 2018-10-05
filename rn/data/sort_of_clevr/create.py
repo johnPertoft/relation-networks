@@ -146,7 +146,7 @@ class Answer:
         count_answer = answer[count_dim_start:]
         count_idx = np.where(count_answer == 1)[0]
         if count_idx.size > 0:
-            return cls(count=count_idx + 1)
+            return cls(count=count_idx[0] + 1)
 
         assert False, "Empty answer."
 
